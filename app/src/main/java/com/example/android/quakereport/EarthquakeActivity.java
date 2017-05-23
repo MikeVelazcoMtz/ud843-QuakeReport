@@ -15,39 +15,88 @@
  */
 package com.example.android.quakereport;
 
+import android.app.LoaderManager;
+import android.content.Loader;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
+import android.view.View;
 import android.widget.ListView;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.List;
 
-public class EarthquakeActivity extends AppCompatActivity {
+public class EarthquakeActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<List<Earthquake>> {
+
 
     public static final String LOG_TAG = EarthquakeActivity.class.getName();
+
+    private EarthquakeAdapter mAdapter;
+
+    private TextView emptyTextView;
+
+    private ProgressBar progressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.earthquake_activity);
 
-        // Create a fake list of earthquake locations.
-        ArrayList<Earthquake> earthquakes = new ArrayList<>();
-//        earthquakes.add(new Earthquake("San Francisco", "18 April, 2017", "5.0"));
-//        earthquakes.add(new Earthquake("London", "18 April, 2017", "5.0"));
-//        earthquakes.add(new Earthquake("Tokyo", "18 April, 2017", "5.0"));
-//        earthquakes.add(new Earthquake("Mexico City", "18 April, 2017", "5.0"));
-//        earthquakes.add(new Earthquake("Moscow", "18 April, 2017", "5.0"));
-//        earthquakes.add(new Earthquake("Rio de Janeiro", "18 April, 2017", "5.0"));
-//        earthquakes.add(new Earthquake("Paris", "18 April, 2017", "5.0"));
-        earthquakes = QueryUtils.extractEarthquakes();
-        // Find a reference to the {@link ListView} in the layout
+        // Create a new adapter that takes an empty list of earthquakes as input
+        mAdapter = new EarthquakeAdapter(this, new ArrayList<Earthquake>());
+
         ListView earthquakeListView = (ListView) findViewById(R.id.list);
 
-        // Create a new {@link ArrayAdapter} of earthquakes
-        EarthquakeAdapter adapter = new EarthquakeAdapter(this, earthquakes);
+        progressBar = (ProgressBar) findViewById(R.id.progress);
 
-        // Set the adapter on the {@link ListView}
-        // so the list can be populated in the user interface
-        earthquakeListView.setAdapter(adapter);
+        emptyTextView = (TextView) findViewById(R.id.no_earthquake);
+        earthquakeListView.setEmptyView(emptyTextView);
+        earthquakeListView.setAdapter(mAdapter);
+
+        ConnectivityManager connectivityManager =
+                (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+
+        NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
+
+        if (networkInfo == null || !networkInfo.isConnectedOrConnecting()){
+            progressBar.setVisibility(View.GONE);
+            emptyTextView.setText(getText(R.string.no_earthquakes));
+        } else {
+            LoaderManager loaderManager = getLoaderManager();
+            loaderManager.initLoader(1, null, this);
+            Log.i(LOG_TAG, "InitLoader executed!");
+        }
+    }
+
+    @Override
+    public void onLoadFinished(Loader<List<Earthquake>> loader, List<Earthquake> earthquakes) {
+        progressBar.setVisibility(View.GONE);
+        mAdapter.clear();
+
+        if (earthquakes != null && !earthquakes.isEmpty()) {
+            emptyTextView.setText("");
+            Log.i(LOG_TAG, "Earthquakes is not empty");
+            mAdapter.addAll(earthquakes);
+        } else {
+            emptyTextView.setText(getText(R.string.no_earthquakes));
+        }
+        Log.i(LOG_TAG, "onLoadFinished executed");
+
+    }
+
+    @Override
+    public Loader<List<Earthquake>> onCreateLoader(int id, Bundle args) {
+        Log.i(LOG_TAG, "onCreateLoader executed");
+        return new EarthquakeLoader(this);
+    }
+
+    @Override
+    public void onLoaderReset(Loader loader) {
+        Log.i(LOG_TAG, "onLoaderReset executed!");
+        mAdapter.clear();
     }
 }
